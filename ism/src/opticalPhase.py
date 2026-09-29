@@ -1,4 +1,3 @@
-
 from ism.src.initIsm import initIsm
 from math import pi
 from ism.src.mtf import mtf
@@ -11,6 +10,7 @@ from common.plot.plotMat2D import plotMat2D
 from common.plot.plotF import plotF
 from scipy.signal import convolve2d
 from common.src.auxFunc import getIndexBand
+
 
 class opticalPhase(initIsm):
 
@@ -32,7 +32,7 @@ class opticalPhase(initIsm):
         self.logger.info("EODP-ALG-ISM-1010: Spectral modelling. ISRF")
         toa = self.spectralIntegration(sgm_toa, sgm_wv, band)
 
-        self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [e-]")
+        self.logger.debug("TOA [0,0] " + str(toa[0, 0]) + " [e-]")
 
         if self.ismConfig.save_after_isrf:
             saveas_str = self.globalConfig.ism_toa_isrf + band
@@ -46,24 +46,35 @@ class opticalPhase(initIsm):
                              self.ismConfig.f,
                              self.ismConfig.Tr)
 
-        self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [e-]")
+        self.logger.debug("TOA [0,0] " + str(toa[0, 0]) + " [e-]")
 
         # Spatial filter
         # -------------------------------------------------------------------------------
         # Calculation and application of the system MTF
         self.logger.info("EODP-ALG-ISM-1030: Spatial modelling. PSF/MTF")
         myMtf = mtf(self.logger, self.outdir)
-        Hsys = myMtf.system_mtf(toa.shape[0], toa.shape[1],
-                                self.ismConfig.D, self.ismConfig.wv[getIndexBand(band)], self.ismConfig.f, self.ismConfig.pix_size,
-                                self.ismConfig.kLF, self.ismConfig.wLF, self.ismConfig.kHF, self.ismConfig.wHF,
-                                self.ismConfig.defocus, self.ismConfig.ksmear, self.ismConfig.kmotion,
-                                self.outdir, band)
+
+        Hsys = myMtf.system_mtf(
+            toa.shape[0],
+            toa.shape[1],
+            self.ismConfig.D,
+            self.ismConfig.wv[getIndexBand(band)],
+            self.ismConfig.f,
+            self.ismConfig.pix_size,
+            self.ismConfig.kLF,
+            self.ismConfig.wLF,
+            self.ismConfig.kHF,
+            self.ismConfig.wHF,
+            self.ismConfig.defocus,
+            self.ismConfig.ksmear,
+            self.ismConfig.kmotion,
+            self.outdir,
+            band
+        )
 
         # Apply system MTF
-        toa = self.applySysMtf(toa, Hsys) # always calculated
-        self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [e-]")
-
-
+        toa = self.applySysMtf(toa, Hsys)  # always calculated
+        self.logger.debug("TOA [0,0] " + str(toa[0, 0]) + " [e-]")
 
         # Write output TOA & plots
         # -------------------------------------------------------------------------------
@@ -73,13 +84,30 @@ class opticalPhase(initIsm):
             writeToa(self.outdir, saveas_str, toa)
 
             title_str = 'TOA after the optical phase [mW/sr/m2]'
-            xlabel_str='ACT'
-            ylabel_str='ALT'
-            plotMat2D(toa, title_str, xlabel_str, ylabel_str, self.outdir, saveas_str)
+            xlabel_str = 'ACT'
+            ylabel_str = 'ALT'
 
-            idalt = int(toa.shape[0]/2)
+            plotMat2D(
+                toa,
+                title_str,
+                xlabel_str,
+                ylabel_str,
+                self.outdir,
+                saveas_str
+            )
+
+            idalt = int(toa.shape[0] / 2)
             saveas_str = saveas_str + '_alt' + str(idalt)
-            plotF([], toa[idalt,:], title_str, xlabel_str, ylabel_str, self.outdir, saveas_str)
+
+            plotF(
+                [],
+                toa[idalt, :],
+                title_str,
+                xlabel_str,
+                ylabel_str,
+                self.outdir,
+                saveas_str
+            )
 
         return toa
 
@@ -92,9 +120,12 @@ class opticalPhase(initIsm):
         :param Tr: Optical transmittance [-]
         :return: TOA image in irradiances [mW/m2]
         """
-        # TODO
-        return toa
 
+        # Radiance to irradiance conversion:
+        # I = Tr * L * pi/4 * (D/f)^2
+        toa = Tr * toa * (pi / 4.0) * (D / f) ** 2
+
+        return toa
 
     def applySysMtf(self, toa, Hsys):
         """
@@ -103,8 +134,23 @@ class opticalPhase(initIsm):
         :param Hsys: System MTF
         :return: TOA image in irradiances [mW/m2]
         """
-        # TODO
-        return toa_ft
+
+        # Convert TOA to frequency domain
+        toa_ft = fft2(toa)
+
+        # Shift system MTF so zero frequency is in the first position
+        Hsys_shift = fftshift(Hsys)
+
+        # Apply system MTF in frequency domain
+        toa_ft = toa_ft * Hsys_shift
+
+        # Convert back to spatial domain
+        toa = ifft2(toa_ft)
+
+        # Imaginary component should be negligible
+        toa = np.real(toa)
+
+        return toa
 
     def spectralIntegration(self, sgm_toa, sgm_wv, band):
         """
@@ -114,7 +160,50 @@ class opticalPhase(initIsm):
         :param band: band
         :return: TOA image 2D in radiances [mW/m2]
         """
-        # TODO
+
+        # Read ISRF
+        isrf, wv_isrf = readIsrf(
+            self.auxdir + '/' + self.ismConfig.isrffile,
+            band
+        )
+
+        # Initialise output image
+        toa = np.zeros(
+            (sgm_toa.shape[0], sgm_toa.shape[1])
+        )
+
+        # Normalise ISRF preserving its integral
+        # isrf = isrf / np.trapz(isrf, wv_isrf)
+        isrf = isrf / np.trapezoid(isrf, wv_isrf)
+        # Convert ISRF wavelengths to nanometres x1000
+        wv_isrf = wv_isrf * 1000
+
+        # creating interpolant of the ISRF - interp ISRF to the SGM wavelengths
+        # cs = interp1d(wv_isrf, isrf, fill_value=(0, 0), bounds_error=False)
+        # interp_isrf = cs(sgm_wv)  # 1D vector
+        #
+        # for ialt in range(sgm_toa.shape[0]):
+        #     for iact in range(sgm_toa.shape[1]):
+        #         toa[ialt,iact] = sum(sgm_toa[ialt,iact,:] * interp_isrf)
+
+        # Alternative used in class:
+        # interpolate the SGM spectrum to the ISRF wavelengths
+        for ialt in range(sgm_toa.shape[0]):
+            for iact in range(sgm_toa.shape[1]):
+
+                cs = interp1d(
+                    sgm_wv,
+                    sgm_toa[ialt, iact, :],
+                    fill_value=(0, 0),
+                    bounds_error=False
+                )
+
+                sgm_inter = cs(wv_isrf)
+
+                # Apply ISRF and sum it up,
+                # assigning the result to the output pixel
+                toa[ialt, iact] = np.sum(
+                    sgm_inter * isrf
+                )
+
         return toa
-
-

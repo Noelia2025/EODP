@@ -25,6 +25,7 @@ class mtf:
                    kLF, wLF, kHF, wHF, defocus, ksmear, kmotion, directory, band):
         """
         System MTF
+
         :param nlines: Lines of the TOA
         :param ncolumns: Columns of the TOA
         :param D: Telescope diameter [m]
@@ -69,7 +70,7 @@ class mtf:
 
         # Calculate the System MTF
         self.logger.debug("Calculation of the Sysmtem MTF by multiplying the different contributors")
-        Hsys = 1 # dummy
+        Hsys = Hdiff * Hdefoc * Hwfe * Hdet * Hsmear * Hmotion
 
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
@@ -92,6 +93,27 @@ class mtf:
         :return fnAlt: 1D normalised frequencies 2D ALT (f/(1/w))
         """
         #TODO
+        eps = 1e-6
+
+        fstepAlt = 1 / nlines / w
+        fstepAct = 1 / ncolumns / w
+
+
+
+        fAlt = np.arange(-1 / (2 * w), 1 / (2 * w) - eps, fstepAlt)
+        fAct = np.arange(-1 / (2 * w), 1 / (2 * w) - eps, fstepAct)
+
+        fnAct = fAct / (1/w)
+        fnAlt = fAlt / (1/w)
+
+        [fnAltxx, fnActxx] = np.meshgrid(fnAlt, fnAct, indexing='ij')  # Please use ‘ij’ indexing or you
+        fn2D = np.sqrt(fnAltxx * fnAltxx + fnActxx * fnActxx)
+
+        fc = D / (lambd * focal)
+        fr2D = fn2D / (fc)*(1 / w)
+
+
+
         return fn2D, fr2D, fnAct, fnAlt
 
     def mtfDiffract(self,fr2D):
@@ -100,7 +122,11 @@ class mtf:
         :param fr2D: 2D relative frequencies (f/fc), where fc is the optics cut-off frequency
         :return: diffraction MTF
         """
-        #TODO
+        Hdiff = np.zeros_like(fr2D)
+
+        ind = fr2D <= 1
+        Hdiff[ind] = (2 / pi) * (np.arccos(fr2D[ind])- fr2D[ind] * np.sqrt(1 - fr2D[ind]**2))
+
         return Hdiff
 
 
@@ -113,7 +139,11 @@ class mtf:
         :param D: Telescope diameter [m]
         :return: Defocus MTF
         """
-        #TODO
+        x = pi * defocus * fr2D * (1 - fr2D)
+
+        Hdefoc = np.ones_like(fr2D)
+        nonzero = x != 0
+        Hdefoc[nonzero] = 2 * j1(x[nonzero]) / x[nonzero]
         return Hdefoc
 
     def mtfWfeAberrations(self, fr2D, lambd, kLF, wLF, kHF, wHF):
@@ -127,7 +157,8 @@ class mtf:
         :param wHF: RMS of high-frequency wavefront errors [m]
         :return: WFE Aberrations MTF
         """
-        #TODO
+        Hwfe = np.exp(-fr2D * (1 - fr2D) * (kLF * (wLF / lambd) ** 2 + kHF * (wHF / lambd) ** 2))
+
         return Hwfe
 
     def mtfDetector(self,fn2D):
@@ -137,6 +168,8 @@ class mtf:
         :return: detector MTF
         """
         #TODO
+        Hdet = np.abs(np.sinc(fn2D))
+
         return Hdet
 
     def mtfSmearing(self, fnAlt, ncolumns, ksmear):
@@ -148,6 +181,10 @@ class mtf:
         :return: Smearing MTF
         """
         #TODO
+        HsmearAlt = np.sinc(ksmear * fnAlt)
+
+        Hsmear = repmat(HsmearAlt.reshape(-1, 1), 1, ncolumns)
+
         return Hsmear
 
     def mtfMotion(self, fn2D, kmotion):
@@ -158,6 +195,8 @@ class mtf:
         :return: detector MTF
         """
         #TODO
+        Hmotion = np.sinc(kmotion * fn2D)
+
         return Hmotion
 
     def plotMtf(self,Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band):
