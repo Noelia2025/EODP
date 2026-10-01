@@ -8,7 +8,6 @@ auxdir = r'C:\\Users\\noeli\\Downloads\\EODP\\auxiliary'
 indir = r'C:\\Users\\noeli\\Downloads\\EODP_TER_2021-20260910T141241Z-1-001\\EODP_TER_2021\\EODP-TS-ISM\\input\\gradient_alt100_act150'
 
 outdir = r'C:\\Users\\noeli\\Downloads\\EODP_TER_2021-20260910T141241Z-1-001\\EODP_TER_2021\\EODP-TS-ISM\\myoutput'
-
 # Initialise the ISM
 myIsm = ism(auxdir, indir, outdir)
 myIsm.processModule()

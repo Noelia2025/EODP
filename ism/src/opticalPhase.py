@@ -153,13 +153,6 @@ class opticalPhase(initIsm):
         return toa
 
     def spectralIntegration(self, sgm_toa, sgm_wv, band):
-        """
-        Integration with the ISRF to retrieve one band
-        :param sgm_toa: Spectrally oversampled TOA cube 3D in irradiances [mW/m2]
-        :param sgm_wv: wavelengths of the input TOA cube
-        :param band: band
-        :return: TOA image 2D in radiances [mW/m2]
-        """
 
         # Read ISRF
         isrf, wv_isrf = readIsrf(
@@ -167,30 +160,19 @@ class opticalPhase(initIsm):
             band
         )
 
+        # Convert wavelengths to nanometres
+        wv_isrf = wv_isrf * 1000
+
+        # Normalise ISRF using its integral
+        isrf = isrf / np.trapezoid(isrf, wv_isrf)
+
         # Initialise output image
         toa = np.zeros(
             (sgm_toa.shape[0], sgm_toa.shape[1])
         )
 
-        # Normalise ISRF preserving its integral
-        # isrf = isrf / np.trapz(isrf, wv_isrf)
-        isrf = isrf / np.trapezoid(isrf, wv_isrf)
-        # Convert ISRF wavelengths to nanometres x1000
-        wv_isrf = wv_isrf * 1000
-
-        # creating interpolant of the ISRF - interp ISRF to the SGM wavelengths
-        # cs = interp1d(wv_isrf, isrf, fill_value=(0, 0), bounds_error=False)
-        # interp_isrf = cs(sgm_wv)  # 1D vector
-        #
-        # for ialt in range(sgm_toa.shape[0]):
-        #     for iact in range(sgm_toa.shape[1]):
-        #         toa[ialt,iact] = sum(sgm_toa[ialt,iact,:] * interp_isrf)
-
-        # Alternative used in class:
-        # interpolate the SGM spectrum to the ISRF wavelengths
         for ialt in range(sgm_toa.shape[0]):
             for iact in range(sgm_toa.shape[1]):
-
                 cs = interp1d(
                     sgm_wv,
                     sgm_toa[ialt, iact, :],
@@ -200,10 +182,9 @@ class opticalPhase(initIsm):
 
                 sgm_inter = cs(wv_isrf)
 
-                # Apply ISRF and sum it up,
-                # assigning the result to the output pixel
-                toa[ialt, iact] = np.sum(
-                    sgm_inter * isrf
+                toa[ialt, iact] = np.trapezoid(
+                    sgm_inter * isrf,
+                    wv_isrf
                 )
 
         return toa
