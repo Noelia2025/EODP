@@ -2,10 +2,10 @@
 
 from ism.src.ism import ism
 
-# Directory - this is the common directory for the execution of the E2E, all modules
+# Common auxiliary directory
 auxdir = r'C:\\Users\\noeli\\Downloads\\EODP\\auxiliary'
 
-# E2E input
+# E2E input from SGM output
 indir = r'C:\\Users\\noeli\\Downloads\\SHARED-20260917T171805Z-1-001\\SHARED\\EODP-TS-E2E\\sgm_out'
 
 # E2E ISM output
@@ -13,4 +13,6 @@ outdir = r'C:\\Users\\noeli\\Downloads\\EODP_TER_2021-20260910T141241Z-1-001\\EO
 
 # Initialise the ISM
 myIsm = ism(auxdir, indir, outdir)
+
+# Execute the ISM
 myIsm.processModule()
