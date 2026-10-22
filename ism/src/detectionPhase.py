@@ -170,16 +170,12 @@ class detectionPhase(initIsm):
 
         return toa_ph
 
-
     def phot2Electr(self, toa, QE):
-        """
-        Conversion of photons to electrons
-        :param toa: input TOA in photons [ph]
-        :param QE: Quantum efficiency [e-/ph]
-        :return: toa in electrons
-        """
 
         toae = toa * QE
+
+        # Full Well Capacity saturation
+        toae[toae > self.ismConfig.FWC] = self.ismConfig.FWC
 
         return toae
 
