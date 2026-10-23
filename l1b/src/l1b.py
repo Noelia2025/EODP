@@ -185,10 +185,16 @@ class l1b(initL1b):
             'L1B TOA Radiance - ' + band
         )
 
+        # Keep the project paths with \\.
+        # Only create a temporary Windows-compatible path for matplotlib.
+        outputdir_plot = outputdir.replace('\\\\', '\\')
+
         savefile = os.path.join(
-            outputdir,
+            outputdir_plot,
             'l1b_toa_' + band + '.png'
         )
+
+        print("Saving image:", savefile)
 
         plt.savefig(
             savefile,

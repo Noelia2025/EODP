@@ -15,10 +15,10 @@ class l1bConfig:
         # Gain, conversion factor from Digital Numbers to Radiances
         # self.gain = np.array([0.09209303, 0.06787323, 0.052162305, 0.047756273]) # [mW/m2/sr/DN]
         self.gain = np.array([
-            0.005764054,
-            0.0042465106,
-            0.0032643573,
-            0.002987937
+            0.005764054,  # VNIR-0
+            0.0042465106,  # VNIR-1
+            0.0032643573,  # VNIR-2
+            0.002987937  # VNIR-3
         ])
         # Equalisation, multiplicative and additive factors.
         self.eq_mult = 'equalization/eq_mult_'
